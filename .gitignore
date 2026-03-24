@@ -1,0 +1,7 @@
+*.exe
+*.pdb
+*.ilk
+*.out
+nimcache/
+nim.cfg
+.env

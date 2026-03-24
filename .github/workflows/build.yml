@@ -1,0 +1,30 @@
+name: Github Actions
+on:
+  push:
+    branches: [master]
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: jiro4989/setup-nim-action@v2
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        nim-version: stable
+    - name: Install packages
+      run: |
+        apt-get update
+        apt-get install -y curl ca-certificates libpcre3-dev
+    - name: Install nimby
+      run: nimble install nimby -y
+    - name: Cache nimby packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.nimby
+        key: ${{ runner.os }}-nimby-${{ hashFiles('nimby.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-nimby-
+    - run: nimby sync -g nimby.lock
+    - run: make check
