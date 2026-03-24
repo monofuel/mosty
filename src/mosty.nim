@@ -407,14 +407,9 @@ proc handleEvent(
 
   if eventType == "hello":
     discard
-  elif eventType in ["posted", "post_edited"]:
+  elif eventType in ["posted", "post_edited", "post_deleted"]:
     if onPost != nil and event.hasKey("data") and event["data"].hasKey("post"):
       # Mattermost double-encodes: data.post is a JSON string.
-      let postJson = event["data"]["post"].getStr
-      let post = fromJson(postJson, MattermostPost)
-      onPost(client, post)
-  elif eventType == "post_deleted":
-    if onPost != nil and event.hasKey("data") and event["data"].hasKey("post"):
       let postJson = event["data"]["post"].getStr
       let post = fromJson(postJson, MattermostPost)
       onPost(client, post)

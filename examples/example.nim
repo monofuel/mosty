@@ -1,5 +1,5 @@
 import
-  std/[os, json],
+  std/[os],
   ../src/mosty
 
 let client = newMostyClient(
