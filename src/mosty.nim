@@ -2,7 +2,8 @@
 ## Provides REST and WebSocket gateway access for bot accounts.
 
 import
-  std/[strformat, json, options, tables, os, strutils, asyncdispatch, random, locks],
+  std/[strformat, json, openssl, options, tables, os, strutils, asyncdispatch,
+       random, locks],
   curly, ws, jsony
 
 # -------------------------------
@@ -434,6 +435,33 @@ proc eventLoop(
     let packet = await wsClient.receiveStrPacket()
     let event = parseJson(packet)
     client.handleEvent(event, onRaw, onPost, onReaction)
+
+# Workaround: Nim's std/net newContext() does not set X509_V_FLAG_PARTIAL_CHAIN,
+# so SSL verification fails when only an intermediate CA is in the trust store
+# (no full chain to a self-signed root). This is common with internal PKI setups.
+# The ws library creates its own SSL context internally, so we cannot pass a
+# custom context through. Instead we patch the OpenSSL default verify parameters
+# at the process level so all subsequently created contexts inherit partial chain.
+#
+# TODO: upstream a fix to Nim's std/net newContext() to support partial chain
+# verification (or expose an option for it). We have merged PRs to Nim before
+# and this is a reasonable enhancement.
+
+proc X509_VERIFY_PARAM_set_flags(param: pointer, flags: culong): cint
+  {.cdecl, dynlib: DLLSSLName, importc.}
+proc X509_VERIFY_PARAM_lookup(name: cstring): pointer
+  {.cdecl, dynlib: DLLSSLName, importc.}
+
+proc enablePartialChainVerification*() =
+  ## Enable X509_V_FLAG_PARTIAL_CHAIN on OpenSSL's global default verify parameters.
+  ## Call this once at startup before any SSL connections are made.
+  ## This allows trusting intermediate CAs directly without requiring a full
+  ## chain to a self-signed root certificate. Affects all SSL contexts created
+  ## afterwards (including those created internally by the ws library).
+  const X509VFlagPartialChain = 0x80000.culong
+  let defaultParam = X509_VERIFY_PARAM_lookup("default")
+  if not defaultParam.isNil:
+    discard X509_VERIFY_PARAM_set_flags(defaultParam, X509VFlagPartialChain)
 
 proc connectGateway(
   client: MostyClient,
