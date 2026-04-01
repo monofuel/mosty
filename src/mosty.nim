@@ -448,9 +448,9 @@ proc eventLoop(
 # and this is a reasonable enhancement.
 
 proc X509_VERIFY_PARAM_set_flags(param: pointer, flags: culong): cint
-  {.cdecl, dynlib: DLLSSLName, importc.}
+  {.cdecl, dynlib: DLLUtilName, importc.}
 proc X509_VERIFY_PARAM_lookup(name: cstring): pointer
-  {.cdecl, dynlib: DLLSSLName, importc.}
+  {.cdecl, dynlib: DLLUtilName, importc.}
 
 proc enablePartialChainVerification*() =
   ## Enable X509_V_FLAG_PARTIAL_CHAIN on OpenSSL's global default verify parameters.
