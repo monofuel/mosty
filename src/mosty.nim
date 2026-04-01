@@ -434,6 +434,8 @@ proc eventLoop(
   ## Read WebSocket messages and dispatch events.
   while wsClient.readyState == ReadyState.Open and client.running:
     let packet = await wsClient.receiveStrPacket()
+    if packet.len == 0:
+      continue
     let event = parseJson(packet)
     client.handleEvent(event, onRaw, onPost, onReaction)
 
