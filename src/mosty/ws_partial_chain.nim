@@ -8,21 +8,24 @@
 ## and this is a reasonable enhancement.
 
 import
-  std/[asyncdispatch, asyncnet, base64, httpclient, net, openssl, random,
-       strutils, uri],
+  std/[asyncdispatch, base64, httpclient, net, openssl, random, strutils, uri],
   ws
 
-const X509VFlagPartialChain = 0x80000.clong
+const X509VFlagPartialChain = 0x80000.culong
 
-proc SSL_CTX_set_options(ctx: SslCtx, flags: clong): clong
+proc SSL_CTX_get0_param(ctx: SslCtx): pointer
   {.cdecl, dynlib: DLLSSLName, importc.}
+
+proc X509_VERIFY_PARAM_set_flags(param: pointer, flags: culong): cint
+  {.cdecl, dynlib: DLLUtilName, importc.}
 
 proc newWebSocketPartialChain*(url: string): Future[WebSocket] {.async.} =
   ## Create a WebSocket with X509_V_FLAG_PARTIAL_CHAIN enabled on the SSL context.
   ## This allows trusting intermediate CAs directly without a complete chain to a
   ## self-signed root.
   let ctx = newContext(verifyMode = CVerifyPeer)
-  discard SSL_CTX_set_options(ctx.context, X509VFlagPartialChain)
+  let param = SSL_CTX_get0_param(ctx.context)
+  discard X509_VERIFY_PARAM_set_flags(param, X509VFlagPartialChain)
   var httpClient = newAsyncHttpClient(sslContext = ctx)
 
   var secStr = newString(16)
