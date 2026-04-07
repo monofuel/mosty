@@ -15,8 +15,8 @@ jobs:
         nim-version: stable
     - name: Install packages
       run: |
-        apt-get update
-        apt-get install -y curl ca-certificates libpcre3-dev
+        sudo apt-get update
+        sudo apt-get install -y curl ca-certificates libpcre3-dev
     - name: Install nimby
       run: nimble install nimby -y
     - name: Cache nimby packages
