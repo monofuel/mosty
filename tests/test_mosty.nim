@@ -153,3 +153,155 @@ suite "client: websocketUrl derivation":
     let client = newMostyClient("http://mm.example.com", "test-token")
     check client.websocketUrl() == "ws://mm.example.com/api/v4/websocket"
     client.close()
+
+suite "handleEvent: dispatch logic":
+  test "seq_reply skips all callbacks":
+    let client = newMostyClient("https://mm.example.com", "test-token")
+    var rawCalled = false
+    let event = parseJson("""{"seq_reply":1,"status":"OK"}""")
+    client.handleEvent(
+      event,
+      proc(c: MostyClient, e: JsonNode) {.gcsafe.} =
+        {.cast(gcsafe).}: rawCalled = true,
+      nil,
+      nil
+    )
+    check not rawCalled
+    client.close()
+
+  test "hello event calls onRaw only":
+    let client = newMostyClient("https://mm.example.com", "test-token")
+    var rawCalled = false
+    var postCalled = false
+    let event = parseJson("""{"event":"hello","data":{}}""")
+    client.handleEvent(
+      event,
+      proc(c: MostyClient, e: JsonNode) {.gcsafe.} =
+        {.cast(gcsafe).}: rawCalled = true,
+      proc(c: MostyClient, p: MattermostPost) {.gcsafe.} =
+        {.cast(gcsafe).}: postCalled = true,
+      nil
+    )
+    check rawCalled
+    check not postCalled
+    client.close()
+
+  test "posted event calls onPost then onRaw":
+    let client = newMostyClient("https://mm.example.com", "test-token")
+    var order: seq[string]
+    let postData = %*{"id": "p1", "channel_id": "ch1", "message": "hi"}
+    let event = %*{"event": "posted", "data": {"post": $postData}}
+    client.handleEvent(
+      event,
+      proc(c: MostyClient, e: JsonNode) {.gcsafe.} =
+        {.cast(gcsafe).}: order.add("raw"),
+      proc(c: MostyClient, p: MattermostPost) {.gcsafe.} =
+        {.cast(gcsafe).}:
+          check p.id == "p1"
+          check p.message == "hi"
+          order.add("post"),
+      nil
+    )
+    check order == @["post", "raw"]
+    client.close()
+
+  test "post_edited dispatches like posted":
+    let client = newMostyClient("https://mm.example.com", "test-token")
+    var postCalled = false
+    let postData = %*{"id": "p2", "channel_id": "ch1", "message": "edited"}
+    let event = %*{"event": "post_edited", "data": {"post": $postData}}
+    client.handleEvent(
+      event,
+      nil,
+      proc(c: MostyClient, p: MattermostPost) {.gcsafe.} =
+        {.cast(gcsafe).}:
+          check p.id == "p2"
+          postCalled = true,
+      nil
+    )
+    check postCalled
+    client.close()
+
+  test "post_deleted dispatches like posted":
+    let client = newMostyClient("https://mm.example.com", "test-token")
+    var postCalled = false
+    let postData = %*{"id": "p3", "channel_id": "ch1", "message": ""}
+    let event = %*{"event": "post_deleted", "data": {"post": $postData}}
+    client.handleEvent(
+      event,
+      nil,
+      proc(c: MostyClient, p: MattermostPost) {.gcsafe.} =
+        {.cast(gcsafe).}:
+          check p.id == "p3"
+          postCalled = true,
+      nil
+    )
+    check postCalled
+    client.close()
+
+  test "reaction_added calls onReaction then onRaw":
+    let client = newMostyClient("https://mm.example.com", "test-token")
+    var order: seq[string]
+    let reactionData = %*{"user_id": "u1", "post_id": "p1", "emoji_name": "thumbsup", "create_at": 0}
+    let event = %*{"event": "reaction_added", "data": {"reaction": $reactionData}}
+    client.handleEvent(
+      event,
+      proc(c: MostyClient, e: JsonNode) {.gcsafe.} =
+        {.cast(gcsafe).}: order.add("raw"),
+      nil,
+      proc(c: MostyClient, r: MattermostReaction) {.gcsafe.} =
+        {.cast(gcsafe).}:
+          check r.emoji_name == "thumbsup"
+          order.add("reaction")
+    )
+    check order == @["reaction", "raw"]
+    client.close()
+
+  test "reaction_removed dispatches like reaction_added":
+    let client = newMostyClient("https://mm.example.com", "test-token")
+    var reactionCalled = false
+    let reactionData = %*{"user_id": "u1", "post_id": "p1", "emoji_name": "heart", "create_at": 0}
+    let event = %*{"event": "reaction_removed", "data": {"reaction": $reactionData}}
+    client.handleEvent(
+      event,
+      nil,
+      nil,
+      proc(c: MostyClient, r: MattermostReaction) {.gcsafe.} =
+        {.cast(gcsafe).}:
+          check r.emoji_name == "heart"
+          reactionCalled = true
+    )
+    check reactionCalled
+    client.close()
+
+  test "unknown event type calls onRaw only":
+    let client = newMostyClient("https://mm.example.com", "test-token")
+    var rawCalled = false
+    var postCalled = false
+    let event = parseJson("""{"event":"user_updated","data":{}}""")
+    client.handleEvent(
+      event,
+      proc(c: MostyClient, e: JsonNode) {.gcsafe.} =
+        {.cast(gcsafe).}: rawCalled = true,
+      proc(c: MostyClient, p: MattermostPost) {.gcsafe.} =
+        {.cast(gcsafe).}: postCalled = true,
+      nil
+    )
+    check rawCalled
+    check not postCalled
+    client.close()
+
+  test "nil onPost with posted event does not crash, onRaw still called":
+    let client = newMostyClient("https://mm.example.com", "test-token")
+    var rawCalled = false
+    let postData = %*{"id": "p4", "channel_id": "ch1", "message": "safe"}
+    let event = %*{"event": "posted", "data": {"post": $postData}}
+    client.handleEvent(
+      event,
+      proc(c: MostyClient, e: JsonNode) {.gcsafe.} =
+        {.cast(gcsafe).}: rawCalled = true,
+      nil,
+      nil
+    )
+    check rawCalled
+    client.close()

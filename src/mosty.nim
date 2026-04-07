@@ -468,7 +468,7 @@ proc websocketUrl*(client: MostyClient): string =
     url = "ws://" & url[7..^1]
   result = url & "/api/v4/websocket"
 
-proc handleEvent(
+proc handleEvent*(
   client: MostyClient,
   event: JsonNode,
   onRaw: OnRawEvent,
