@@ -1,5 +1,5 @@
 import
-  std/[unittest, json, options, tables, os],
+  std/[unittest, json, options, tables, os, strutils],
   mosty,
   jsony
 
@@ -44,6 +44,30 @@ suite "json: renameHook for MattermostTeam":
     let t = fromJson(j, MattermostTeam)
     check t.id == "t1"
     check t.team_type == "O"
+
+suite "json: dumpHook for MattermostChannel":
+  test "toJson outputs type not channel_type":
+    let ch = MattermostChannel(id: "ch1", channel_type: "O")
+    let j = toJson(ch)
+    check j.contains("\"type\"")
+    check not j.contains("\"channel_type\"")
+    check j.contains("\"O\"")
+
+suite "json: dumpHook for MattermostPost":
+  test "toJson outputs type not post_type":
+    let p = MattermostPost(id: "p1", post_type: "system_join")
+    let j = toJson(p)
+    check j.contains("\"type\"")
+    check not j.contains("\"post_type\"")
+    check j.contains("\"system_join\"")
+
+suite "json: dumpHook for MattermostTeam":
+  test "toJson outputs type not team_type":
+    let t = MattermostTeam(id: "t1", team_type: "O")
+    let j = toJson(t)
+    check j.contains("\"type\"")
+    check not j.contains("\"team_type\"")
+    check j.contains("\"O\"")
 
 suite "json: MattermostPostList":
   test "deserialize post list with posts table":
