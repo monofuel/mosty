@@ -350,3 +350,94 @@ suite "json: seq[MattermostBot]":
     check bots[0].display_name == "Bot One"
     check bots[1].user_id == "b2"
     check bots[1].display_name == "Bot Two"
+
+suite "round-trip: MattermostChannel":
+  test "round-trip MattermostChannel preserves type field":
+    let orig = MattermostChannel(id: "ch1", team_id: "t1", channel_type: "O", display_name: "General", name: "general")
+    let rt = fromJson(toJson(orig), MattermostChannel)
+    check rt.id == orig.id
+    check rt.team_id == orig.team_id
+    check rt.channel_type == orig.channel_type
+    check rt.display_name == orig.display_name
+    check rt.name == orig.name
+
+suite "round-trip: MattermostPost":
+  test "round-trip MattermostPost without optional fields":
+    let orig = MattermostPost(id: "p1", channel_id: "ch1", user_id: "u1", message: "hello", post_type: "system_join", props: none(JsonNode), metadata: none(JsonNode))
+    let rt = fromJson(toJson(orig), MattermostPost)
+    check rt.id == orig.id
+    check rt.channel_id == orig.channel_id
+    check rt.user_id == orig.user_id
+    check rt.message == orig.message
+    check rt.post_type == orig.post_type
+    check rt.props.isNone
+    check rt.metadata.isNone
+
+  test "round-trip MattermostPost with optional fields":
+    let propsNode = %*{"key": "val"}
+    let metaNode = %*{"images": {}}
+    let orig = MattermostPost(id: "p2", channel_id: "ch1", message: "hi", file_ids: @["f1", "f2"], props: some(propsNode), metadata: some(metaNode))
+    let rt = fromJson(toJson(orig), MattermostPost)
+    check rt.id == orig.id
+    check rt.message == orig.message
+    check rt.file_ids == @["f1", "f2"]
+    check rt.props.isSome
+    check rt.metadata.isSome
+
+suite "round-trip: MattermostTeam":
+  test "round-trip MattermostTeam preserves type field":
+    let orig = MattermostTeam(id: "t1", display_name: "My Team", name: "myteam", team_type: "O")
+    let rt = fromJson(toJson(orig), MattermostTeam)
+    check rt.id == orig.id
+    check rt.display_name == orig.display_name
+    check rt.name == orig.name
+    check rt.team_type == orig.team_type
+
+suite "round-trip: MattermostPostList":
+  test "round-trip MattermostPostList with posts table":
+    var orig = MattermostPostList()
+    orig.order = @["p1", "p2"]
+    orig.posts = {"p1": MattermostPost(id: "p1", channel_id: "ch1", message: "first"), "p2": MattermostPost(id: "p2", channel_id: "ch1", message: "second")}.toTable
+    let rt = fromJson(toJson(orig), MattermostPostList)
+    check rt.order == @["p1", "p2"]
+    check rt.posts.len == 2
+    check rt.posts["p1"].message == "first"
+    check rt.posts["p2"].message == "second"
+
+suite "round-trip: MattermostUser":
+  test "round-trip MattermostUser":
+    let orig = MattermostUser(id: "u1", username: "alice", email: "alice@example.com", roles: "system_user")
+    let rt = fromJson(toJson(orig), MattermostUser)
+    check rt.id == orig.id
+    check rt.username == orig.username
+    check rt.email == orig.email
+    check rt.roles == orig.roles
+
+suite "round-trip: MattermostReaction":
+  test "round-trip MattermostReaction":
+    let orig = MattermostReaction(user_id: "u1", post_id: "p1", emoji_name: "thumbsup", create_at: 1234567890)
+    let rt = fromJson(toJson(orig), MattermostReaction)
+    check rt.user_id == orig.user_id
+    check rt.post_id == orig.post_id
+    check rt.emoji_name == orig.emoji_name
+    check rt.create_at == orig.create_at
+
+suite "round-trip: MattermostBot":
+  test "round-trip MattermostBot":
+    let orig = MattermostBot(user_id: "b1", username: "mybot", display_name: "My Bot", description: "A test bot", owner_id: "u1")
+    let rt = fromJson(toJson(orig), MattermostBot)
+    check rt.user_id == orig.user_id
+    check rt.username == orig.username
+    check rt.display_name == orig.display_name
+    check rt.description == orig.description
+    check rt.owner_id == orig.owner_id
+
+suite "round-trip: MattermostFileInfo":
+  test "round-trip MattermostFileInfo":
+    let orig = MattermostFileInfo(id: "f1", name: "test.png", size: 12345, mime_type: "image/png", has_preview_image: true)
+    let rt = fromJson(toJson(orig), MattermostFileInfo)
+    check rt.id == orig.id
+    check rt.name == orig.name
+    check rt.size == orig.size
+    check rt.mime_type == orig.mime_type
+    check rt.has_preview_image == orig.has_preview_image
