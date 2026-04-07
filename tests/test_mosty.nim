@@ -1,65 +1,125 @@
 import
-  std/[unittest, os, strutils, tables, times],
-  ../src/mosty
+  std/[unittest, json, options, tables, os],
+  mosty,
+  jsony
 
-proc loadDotEnv(path: string): Table[string, string] =
-  result = initTable[string, string]()
-  if path == "" or not fileExists(path): return
-  for rawLine in readFile(path).splitLines():
-    let line = rawLine.strip()
-    if line.len == 0 or line.startsWith("#"): continue
-    let eq = line.find('=')
-    if eq <= 0: continue
-    let key = line[0..<eq].strip()
-    var value = line[eq+1..^1].strip()
-    if value.len >= 2 and ((value.startsWith('"') and value.endsWith('"')) or (value.startsWith('\'') and value.endsWith('\''))):
-      value = value[1..^2]
-    result[key] = value
+suite "json: renameHook for MattermostChannel":
+  test "type field maps to channel_type":
+    let j = """{"id":"ch1","type":"O","display_name":"General"}"""
+    let ch = fromJson(j, MattermostChannel)
+    check ch.id == "ch1"
+    check ch.channel_type == "O"
+    check ch.display_name == "General"
 
-var
-  baseUrl: string
-  token: string
-  testChannelId: string
+  test "missing type field leaves channel_type empty":
+    let j = """{"id":"ch2","display_name":"Other"}"""
+    let ch = fromJson(j, MattermostChannel)
+    check ch.id == "ch2"
+    check ch.channel_type == ""
 
-proc ensureEnv() =
-  if getEnv("MATTERMOST_URL", "") != "": return
-  let kv = loadDotEnv(".env")
-  for k, v in kv.pairs:
-    if getEnv(k, "") == "":
-      putEnv(k, v)
-  baseUrl = getEnv("MATTERMOST_URL", "")
-  token = getEnv("MATTERMOST_TOKEN", "")
-  testChannelId = getEnv("MATTERMOST_TEST_CHANNEL", "")
+suite "json: renameHook for MattermostPost":
+  test "type field maps to post_type":
+    let j = """{"id":"p1","channel_id":"ch1","message":"hello","type":"system_join"}"""
+    let p = fromJson(j, MattermostPost)
+    check p.id == "p1"
+    check p.post_type == "system_join"
+    check p.message == "hello"
 
-suite "mosty":
-  ensureEnv()
+  test "optional fields deserialize":
+    let j = """{"id":"p2","channel_id":"ch1","message":"","props":{"key":"val"},"file_ids":["f1","f2"]}"""
+    let p = fromJson(j, MattermostPost)
+    check p.props.isSome
+    check p.file_ids == @["f1", "f2"]
 
-  test "user: get me":
-    let client = newMostyClient(baseUrl, token)
-    let me = client.getMe()
-    check me.id.len > 0
-    check me.username.len > 0
+  test "missing optional fields":
+    let j = """{"id":"p3","channel_id":"ch1","message":"hi"}"""
+    let p = fromJson(j, MattermostPost)
+    check p.props.isNone
+    check p.metadata.isNone
+    check p.file_ids.len == 0
+
+suite "json: renameHook for MattermostTeam":
+  test "type field maps to team_type":
+    let j = """{"id":"t1","name":"myteam","type":"O"}"""
+    let t = fromJson(j, MattermostTeam)
+    check t.id == "t1"
+    check t.team_type == "O"
+
+suite "json: MattermostPostList":
+  test "deserialize post list with posts table":
+    let j = """{"order":["p1","p2"],"posts":{"p1":{"id":"p1","channel_id":"ch1","message":"first"},"p2":{"id":"p2","channel_id":"ch1","message":"second"}}}"""
+    let pl = fromJson(j, MattermostPostList)
+    check pl.order == @["p1", "p2"]
+    check pl.posts.len == 2
+    check pl.posts["p1"].message == "first"
+
+suite "json: MattermostUser":
+  test "deserialize user":
+    let j = """{"id":"u1","username":"testuser","email":"test@example.com","roles":"system_user"}"""
+    let u = fromJson(j, MattermostUser)
+    check u.id == "u1"
+    check u.username == "testuser"
+    check u.email == "test@example.com"
+    check u.roles == "system_user"
+
+suite "json: MattermostReaction":
+  test "deserialize reaction":
+    let j = """{"user_id":"u1","post_id":"p1","emoji_name":"thumbsup","create_at":1234567890}"""
+    let r = fromJson(j, MattermostReaction)
+    check r.user_id == "u1"
+    check r.post_id == "p1"
+    check r.emoji_name == "thumbsup"
+    check r.create_at == 1234567890
+
+suite "json: MattermostBot":
+  test "deserialize bot":
+    let j = """{"user_id":"b1","username":"mybot","display_name":"My Bot","description":"A test bot","owner_id":"u1"}"""
+    let b = fromJson(j, MattermostBot)
+    check b.user_id == "b1"
+    check b.username == "mybot"
+    check b.display_name == "My Bot"
+    check b.owner_id == "u1"
+
+suite "json: MattermostFileInfo":
+  test "deserialize file info":
+    let j = """{"id":"f1","name":"test.png","size":12345,"mime_type":"image/png","has_preview_image":true}"""
+    let f = fromJson(j, MattermostFileInfo)
+    check f.id == "f1"
+    check f.name == "test.png"
+    check f.size == 12345
+    check f.mime_type == "image/png"
+    check f.has_preview_image == true
+
+suite "client: newMostyClient defaults":
+  test "strips trailing slash from url":
+    let client = newMostyClient("https://mm.example.com/", "test-token")
+    check client.baseUrl == "https://mm.example.com/api/v4"
     client.close()
 
-  test "post: create and delete":
-    let client = newMostyClient(baseUrl, token)
-    let post = client.createPost(testChannelId, "[mosty test] hello at " & $now())
-    check post.id.len > 0
-    check post.channel_id == testChannelId
-    client.deletePost(post.id)
+  test "appends api/v4 to clean url":
+    let client = newMostyClient("https://mm.example.com", "test-token")
+    check client.baseUrl == "https://mm.example.com/api/v4"
     client.close()
 
-  test "post: list channel posts":
-    let client = newMostyClient(baseUrl, token)
-    let posts = client.getChannelPosts(testChannelId)
-    check posts.order.len >= 0
+  test "falls back to MATTERMOST_TOKEN env var":
+    putEnv("MATTERMOST_TOKEN", "env-token")
+    let client = newMostyClient("https://mm.example.com")
+    check client.token == "env-token"
+    client.close()
+    delEnv("MATTERMOST_TOKEN")
+
+  test "raises on missing token":
+    delEnv("MATTERMOST_TOKEN")
+    expect MostyError:
+      discard newMostyClient("https://mm.example.com", "")
+
+suite "client: websocketUrl derivation":
+  test "https becomes wss":
+    let client = newMostyClient("https://mm.example.com", "test-token")
+    check client.websocketUrl() == "wss://mm.example.com/api/v4/websocket"
     client.close()
 
-  test "post: create and update":
-    let client = newMostyClient(baseUrl, token)
-    let post = client.createPost(testChannelId, "[mosty test] original at " & $now())
-    check post.id.len > 0
-    let updated = client.updatePost(post.id, "[mosty test] updated at " & $now())
-    check updated.id == post.id
-    client.deletePost(post.id)
+  test "http becomes ws":
+    let client = newMostyClient("http://mm.example.com", "test-token")
+    check client.websocketUrl() == "ws://mm.example.com/api/v4/websocket"
     client.close()

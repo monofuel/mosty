@@ -384,7 +384,7 @@ proc stop*(client: MostyClient) =
   if client.ws != nil:
     try: client.ws.close() except CatchableError: discard
 
-proc websocketUrl(client: MostyClient): string =
+proc websocketUrl*(client: MostyClient): string =
   ## Derive the WebSocket URL from the REST base URL.
   var url = client.baseUrl.replace("/api/v4", "")
   if url.startsWith("https://"):
