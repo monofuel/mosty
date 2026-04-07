@@ -22,14 +22,17 @@ var
   testChannelId: string
 
 proc ensureEnv() =
-  if getEnv("MATTERMOST_URL", "") != "": return
-  let kv = loadDotEnv(".env")
-  for k, v in kv.pairs:
-    if getEnv(k, "") == "":
-      putEnv(k, v)
+  if getEnv("MATTERMOST_URL", "") == "":
+    let kv = loadDotEnv(".env")
+    for k, v in kv.pairs:
+      if getEnv(k, "") == "":
+        putEnv(k, v)
   baseUrl = getEnv("MATTERMOST_URL", "")
   token = getEnv("MATTERMOST_TOKEN", "")
   testChannelId = getEnv("MATTERMOST_TEST_CHANNEL", "")
+  if baseUrl == "" or token == "":
+    echo "Skipping integration tests: MATTERMOST_URL or MATTERMOST_TOKEN not set"
+    quit(0)
 
 suite "mosty":
   ensureEnv()
