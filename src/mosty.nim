@@ -29,6 +29,12 @@ type
 const
   DefaultCurlTimeout = 60 * 3
   DefaultMaxInFlight = 16
+  EventHello* = "hello"
+  EventPosted* = "posted"
+  EventPostEdited* = "post_edited"
+  EventPostDeleted* = "post_deleted"
+  EventReactionAdded* = "reaction_added"
+  EventReactionRemoved* = "reaction_removed"
 
 template sync*(a: Lock, body: untyped) =
   ## Acquire the lock, run the body, and release the lock.
@@ -336,15 +342,15 @@ proc handleEvent*(
 
   let eventType = if event.hasKey("event"): event["event"].getStr else: ""
 
-  if eventType == "hello":
+  if eventType == EventHello:
     discard
-  elif eventType in ["posted", "post_edited", "post_deleted"]:
+  elif eventType in [EventPosted, EventPostEdited, EventPostDeleted]:
     if onPost != nil and event.hasKey("data") and event["data"].hasKey("post"):
       # Mattermost double-encodes: data.post is a JSON string.
       let postJson = event["data"]["post"].getStr
       let post = fromJson(postJson, MattermostPost)
       onPost(client, post)
-  elif eventType in ["reaction_added", "reaction_removed"]:
+  elif eventType in [EventReactionAdded, EventReactionRemoved]:
     if onReaction != nil and event.hasKey("data") and event["data"].hasKey("reaction"):
       let reactionJson = event["data"]["reaction"].getStr
       let reaction = fromJson(reactionJson, MattermostReaction)
