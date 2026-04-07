@@ -28,3 +28,4 @@ jobs:
           ${{ runner.os }}-nimby-
     - run: nimby sync -g nimby.lock
     - run: make check
+    - run: make test
