@@ -4,7 +4,7 @@ nim.cfg: nimby.lock
 	nimby sync -g nimby.lock
 
 check: nim.cfg
-	nim check src/mosty.nim
+	nim check --define:ssl src/mosty.nim
 
 test: nim.cfg
 	@files=$$(ls tests/test_*.nim 2>/dev/null); \
