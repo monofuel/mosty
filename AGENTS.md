@@ -1,76 +1,130 @@
-# Mosty
+# Project Instructions
 
-- Mattermost API client library for Nim.
-- Provides REST and WebSocket gateway access for bot accounts.
+Read `AGENTS.project.md` if it exists for additional project-specific rules.
+
+This repository uses Nim and keeps dependencies minimal.
+
+## General
+
+- Prefer clear, small changes.
+- Keep implementations minimal and easy to debug.
+- Prefer simple dependencies.
+- When adding Nim dependencies, prefer packages from monofuel, treeform, and guzba when they fit the task.
+- Let errors bubble up naturally unless there is a strong reason to handle them locally.
+- Do not hide failures with empty catch blocks or discarded errors.
+- Prefer deterministic behavior and idempotent operations.
+- Do not reference, clean, or manage `.nimcache` directories. The build system handles them.
 
 ## Dependencies
 
-- Nim >= 2.0.0
-- curly >= 1.1.1 (HTTP client with connection pooling)
-- jsony >= 1.1.5 (JSON serialization)
-- ws >= 0.5.0 (WebSocket client)
-- webby >= 0.2.1 (URL handling, ws dependency)
-- Dependencies are managed with nimby. Run `nimby sync -g nimby.lock` to install.
+- MUST use nimby (not nimble) for dependency management.
+- When adding dependencies, prefer packages from monofuel, treeform, and guzba.
+- Avoid using SDL, instead prefer native nim alternatives like silky, windy, paddy, slappy
 
-## Tests
+### Recommended libraries by category
 
-- Run `make test` to run all tests.
-- Individual test files can be run with `nim r tests/test_*.nim`.
-- Tests require `MATTERMOST_URL`, `MATTERMOST_TOKEN`, and `MATTERMOST_TEST_CHANNEL` env vars.
+| Category | Library | Description |
+|----------|---------|-------------|
+| JSON | jsony | Fast JSON serialization with hooks for custom types. |
+| HTTP server | mummy | Multi-threaded HTTP 1.1 + WebSocket server. Requires `--threads:on`. |
+| HTTP client | curly | HTTP client built on libcurl. Pairs with mummy. |
+| Database | debby | ORM for SQLite, PostgreSQL, MySQL. Type-safe filters. |
+| WebSocket | ws | Async WebSocket client and server. |
+| URL parsing | urlly | URL parsing and construction. |
+| JWT | jwtea | JSON Web Token signing and verification. |
+| 2D geometry | bumpy | Point, circle, rect, polygon intersection tests. |
+| 2D graphics | pixie | PNG/JPEG/SVG/fonts, path drawing, SIMD-accelerated. |
+| 3D graphics and models | https://github.com/treeform/gltf | GLTF 2.0 model loading (and rendering with opengl). |
+| Vector math | vmath | GLSL-style Vec2–Vec4, Mat3–Mat4, quaternions. |
+| Color | chroma | Color spaces, parsing, conversion. |
+| Windowing | windy | Cross-platform window and input management. |
+| Audio | slappy | audio library on top of OpenAL |
+| gamepads | paddy | game input library |
+| GPU rendering | boxy | 2D GPU rendering engine built on pixie. |
+| GPU compute | shady | Compute shaders for graphical GPU work. |
+| GPU compute (CUDA/HIP) | hippo | Low-level CUDA/HIP for serious GPU compute (LLM inference, etc). |
+| Compression | zippy | Zlib, gzip, zip archive support. SIMD-accelerated. |
+| Hashing | crunchy | Fast hashing and checksums. |
+| SIMD | nimsimd | SIMD intrinsics for SSE/AVX/NEON. |
+| Bit manipulation | bitty | Bit arrays and operations. |
+| Serialization | flatty | Flat binary serialization. |
+| Time | chrono | Timestamps, calendars, formatting. |
+| Benchmarking | benchy | Simple benchmark harness. |
+| Random | noisy | Noise generation (Perlin, Simplex, etc). |
+| Thread pool | ready | Thread pool for parallel work. |
+| Web types | webby | HTTP headers, query strings, multipart. Used by mummy/curly. |
+| UUID | uuids | UUID generation and parsing (pragmagic/uuids). |
+| OpenAI API | openai_leap | OpenAI-compatible API client. |
+| MCP | mcport | MCP client/server (HTTP and stdio). |
+| Discord | guildy | Discord bot API integration. |
 
-## Nim
+## Variables
 
-## Nim best practices
+Group `const`, `let`, and `var` declarations into blocks. Prefer `const` over `let`, and `let` over `var`. Pull magic values into named constants at the top of the file.
 
-**Prefer letting errors bubble up naturally** - Nim's stack traces are excellent for debugging:
+Constants use PascalCase. Variables use camelCase.
 
-Default approach - let operations fail with full context:
+WRONG:
 ```nim
-# Simple and clear - if writeFile fails, we get a full stack trace
-writeFile(filepath, content)
-
-# Database operations - let them fail with complete error information
-db.exec(sql"INSERT INTO users (name) VALUES (?)", username)
+const MAX_RETRIES = 5
+const GRAVITY = 9.81
+let api_url = "https://example.com"
+var retry_count = 0
 ```
 
-For validation and early returns, check conditions explicitly:
+RIGHT:
 ```nim
-# Check preconditions and exit early with clear messages
-if not fileExists(parentDir):
-  error "Parent directory does not exist"
-  quit(1)
-
-if username.len == 0:
-  error "Username cannot be empty"
-  quit(1)
-
-# Now proceed with the operation
-writeFile(filepath, content)
+const
+  MaxRetries = 5
+  Gravity = 9.81
+let
+  apiUrl = "https://example.com"
+var
+  retryCount = 0
 ```
 
-This approach ensures full stack traces in CI environments and makes debugging straightforward.
+- Prefer `&` string interpolation over `fmt`.
+- Do not call functions directly inside interpolated strings when a named variable would be clearer.
 
-### Nim Imports
+## Imports
 
-- std imports should be first, then libraries, and then local imports
-- use [] brackets to group when possible
-- split imports on newlines
-for example,
+One `import` block. Use bracket syntax. Order: std/ then libraries then local. No quotes on paths. Do not use `from` imports.
+
+WRONG:
+```nim
+import std/os
+import std/strutils
+import jsony
+import ./models
+import ./logs
+from ./config import defaultConfig
 ```
+
+RIGHT:
+```nim
 import
-  std/[strformat, strutils],
-  debby/[pools, postgres],
-  ./[models, logs, llm] 
+  std/[os, strutils],
+  jsony,
+  ./[config, models, logs]
 ```
 
-### Nim Procs
+## Procedures
 
-- do not put comments before functions! comments go inside functions.
-- every proc should have a nimdoc comment
-- nimdoc comments start with ##
-- nimdoc comments should be complete sentences followed by punctuation
-for example,
+Doc comments go INSIDE the proc, not above it. Use `##`. All comments are complete sentences: capital first letter, period at end.
+
+WRONG:
+```nim
+# Calculate the sum of multiples.
+proc sumOfMultiples(limit: int): int =
+  var total = 0
+  for i in 1..<limit:
+    if i mod 3 == 0 or i mod 5 == 0:
+      total += i
+  return total
 ```
+
+RIGHT:
+```nim
 proc sumOfMultiples(limit: int): int =
   ## Calculate the sum of all multiples of 3 or 5 below the limit.
   var total = 0
@@ -80,46 +134,55 @@ proc sumOfMultiples(limit: int): int =
   return total
 ```
 
-### Nim Properties
+## Object Types
 
-- if an object property is the same name as a nim keyword, you must wrap it in backticks
+`ref object` and `object` have different tradeoffs. Pick based on how the type will be used.
+
+`ref object` — passed by reference, cheap to pass around, mutations are shared.
+- Use for: types stored in collections, types passed through multiple procs, types with many fields, long-lived state.
+- Watch out for: nil values, aliasing (mutating in one place affects all references).
+
+`object` — passed by value, copies are independent, cannot be nil.
+- Use for: small immutable data (coordinates, colors, config records), types where independent copies are desirable.
+- Watch out for: forgetting `var` when a proc needs to mutate, expensive copies for large types.
+
+```nim
+# ref object — shared state, stored in collections, passed through layers.
+type
+  Player* = ref object
+    name*: string
+    inventory*: seq[Item]
+
+# object — small, often immutable, value semantics are natural.
+type
+  Vec2* = object
+    x*, y*: float
 ```
-  DeleteModelResponse* = ref object
+
+Backtick-wrap fields that collide with Nim keywords.
+
+```nim
+type
+  ApiResponse* = ref object
     id*: string
-    `object`*: string
-    deleted*: bool
+    `type`*: string
 ```
 
-### Variables
+## Error Handling
 
-- please group const, let, and var variables together.
-- please prefer const over let, and let over var.
-- please use capitalized camelCase for consts
-- use regular camelcase for var and let
-- do not place 'magic variables' in the code, instead make them a const and pull them up to the top of the file
-- for example:
+- Do not add `try/except` unless handling the error at that layer is genuinely necessary.
+- Do not use `except: discard`.
+- Failing loudly is preferred over masking problems.
 
-```
-const
-  Version = "0.1.0"
-  Model = "llama3.2:1b"
-let
-  embeddingModel = "nomic-embed-text"
-```
+## Testing
 
-## Programming
+- Keep tests focused on observable behavior.
+- Prefer assertions on files, return values, and command success over loose stdout scanning.
+- If a task changes runtime behavior, update or add tests to cover it.
+- Add a `tests/config.nims` file with `--path:"../src"` so tests can import project modules without ugly relative paths.
 
-- Don't use try/catch unless you have a very, very good reason to be handling the error at this level.
-- never mask errors with catch: discard
-- it's OK to allow errors to bubble up. we want things to be easy to debug and fail fast.
-- returning in the middle of files is confusing, avoid doing it.
-  - early returns at the start of the file is ok.
-- try to make things as idempotent as possible. if a job runs every day, we should make sure it can be robust.
-- never use booleans for 'success' or 'error'. If a function was successful, return nothing and do not throw an error. if a function failed, throw an error.
+## Coding Tasks
 
-### Comments
-
-- functions should have doc comments
-- however code should otherwise not need comments. functions should be named properly and the code should be readable.
-- comments may be ok for 'spooky at a distance' things in rare cases.
-- comments should be complete sentences that are followed with a period.
+- Keep the implementation minimal.
+- Avoid unrelated refactors.
+- When a task asks for a command-line program, make the output exact and avoid extra text.
