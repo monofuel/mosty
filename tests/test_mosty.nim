@@ -113,6 +113,12 @@ suite "client: newMostyClient defaults":
     expect MostyError:
       discard newMostyClient("https://mm.example.com", "")
 
+suite "client: meId field":
+  test "meId starts empty on new client":
+    let client = newMostyClient("https://mm.example.com", "test-token")
+    check client.meId == ""
+    client.close()
+
 suite "client: websocketUrl derivation":
   test "https becomes wss":
     let client = newMostyClient("https://mm.example.com", "test-token")

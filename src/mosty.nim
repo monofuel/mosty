@@ -117,6 +117,7 @@ type
     baseUrl*: string
     token*: string
     curlTimeout*: int
+    meId*: string
     # Gateway
     ws*: ws.WebSocket
     running*: bool
@@ -225,6 +226,17 @@ proc getMe*(client: MostyClient): MattermostUser =
   let resp = client.get("/users/me")
   result = fromJson(resp.body, MattermostUser)
 
+proc getMeId*(client: MostyClient): string =
+  ## Return the cached authenticated user ID, fetching it once if needed.
+  client.lock.sync:
+    result = client.meId
+  if result != "":
+    return
+  let me = client.getMe()
+  client.lock.sync:
+    client.meId = me.id
+  result = me.id
+
 proc getUser*(client: MostyClient, userId: string): MattermostUser =
   ## Get a user by ID.
   let resp = client.get(&"/users/{userId}")
@@ -267,8 +279,8 @@ proc getChannel*(client: MostyClient, channelId: string): MattermostChannel =
 
 proc createDirectChannel*(client: MostyClient, userId: string): MattermostChannel =
   ## Create a direct message channel between the authenticated user and the given user.
-  let me = client.getMe()
-  let body = toJson(@[me.id, userId])
+  let myId = client.getMeId()
+  let body = toJson(@[myId, userId])
   let resp = client.post("/channels/direct", body)
   result = fromJson(resp.body, MattermostChannel)
 
@@ -314,9 +326,9 @@ proc deletePost*(client: MostyClient, postId: string) =
 
 proc addReaction*(client: MostyClient, postId: string, emojiName: string): MattermostReaction =
   ## Add a reaction to a post.
-  let me = client.getMe()
+  let myId = client.getMeId()
   let body = %*{
-    "user_id": me.id,
+    "user_id": myId,
     "post_id": postId,
     "emoji_name": emojiName,
   }
