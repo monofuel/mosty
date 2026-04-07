@@ -146,6 +146,11 @@ proc getUsersByIds*(client: MostyClient, userIds: seq[string]): seq[MattermostUs
   let resp = client.post("/users/ids", body)
   result = fromJson(resp.body, seq[MattermostUser])
 
+proc getUserByUsername*(client: MostyClient, username: string): MattermostUser =
+  ## Get a user by their username.
+  let resp = client.get(&"/users/username/{username}")
+  result = fromJson(resp.body, MattermostUser)
+
 proc sendTyping*(client: MostyClient, channelId: string, parentId: string = "") =
   ## Publish a typing indicator in a channel or thread.
   let meId = client.getMeId()

@@ -67,6 +67,13 @@ suite "mosty":
     client.deletePost(post.id)
     client.close()
 
+  test "user: get by username":
+    let client = newMostyClient(baseUrl, token)
+    let me = client.getMe()
+    let byUsername = client.getUserByUsername(me.username)
+    check byUsername.id == me.id
+    client.close()
+
   test "user: send typing":
     let client = newMostyClient(baseUrl, token)
     client.sendTyping(testChannelId)
