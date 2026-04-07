@@ -441,3 +441,42 @@ suite "round-trip: MattermostFileInfo":
     check rt.size == orig.size
     check rt.mime_type == orig.mime_type
     check rt.has_preview_image == orig.has_preview_image
+
+suite "createPost: JSON body construction":
+  test "body without rootId has channel_id and message, no root_id":
+    let ch = "ch1"
+    let msg = "hello"
+    var body = %*{
+      "channel_id": ch,
+      "message": msg,
+    }
+    check body["channel_id"].getStr == "ch1"
+    check body["message"].getStr == "hello"
+    check not body.hasKey("root_id")
+
+  test "body with rootId includes root_id field":
+    let ch = "ch1"
+    let msg = "hello"
+    let rootId = "parent123"
+    var body = %*{
+      "channel_id": ch,
+      "message": msg,
+    }
+    if rootId != "":
+      body["root_id"] = %rootId
+    check body["channel_id"].getStr == "ch1"
+    check body["message"].getStr == "hello"
+    check body.hasKey("root_id")
+    check body["root_id"].getStr == "parent123"
+
+  test "empty rootId does not add root_id field":
+    let ch = "ch2"
+    let msg = "world"
+    let rootId = ""
+    var body = %*{
+      "channel_id": ch,
+      "message": msg,
+    }
+    if rootId != "":
+      body["root_id"] = %rootId
+    check not body.hasKey("root_id")
