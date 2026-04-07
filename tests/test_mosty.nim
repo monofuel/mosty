@@ -305,3 +305,34 @@ suite "handleEvent: dispatch logic":
     )
     check rawCalled
     client.close()
+
+suite "json: seq[MattermostUser]":
+  test "deserializes array of users":
+    let j = """[{"id":"u1","username":"alice","email":"alice@example.com","roles":"system_user"},{"id":"u2","username":"bob","email":"bob@example.com","roles":"system_admin"}]"""
+    let users = fromJson(j, seq[MattermostUser])
+    check users.len == 2
+    check users[0].id == "u1"
+    check users[0].username == "alice"
+    check users[1].id == "u2"
+    check users[1].username == "bob"
+
+suite "json: seq[MattermostChannel]":
+  test "deserializes array of channels with renameHook":
+    let j = """[{"id":"ch1","type":"O","display_name":"General"},{"id":"ch2","type":"P","display_name":"Private"}]"""
+    let channels = fromJson(j, seq[MattermostChannel])
+    check channels.len == 2
+    check channels[0].id == "ch1"
+    check channels[0].channel_type == "O"
+    check channels[1].id == "ch2"
+    check channels[1].channel_type == "P"
+
+suite "json: seq[MattermostBot]":
+  test "deserializes array of bots":
+    let j = """[{"user_id":"b1","username":"bot1","display_name":"Bot One","owner_id":"u1"},{"user_id":"b2","username":"bot2","display_name":"Bot Two","owner_id":"u2"}]"""
+    let bots = fromJson(j, seq[MattermostBot])
+    check bots.len == 2
+    check bots[0].user_id == "b1"
+    check bots[0].username == "bot1"
+    check bots[0].display_name == "Bot One"
+    check bots[1].user_id == "b2"
+    check bots[1].display_name == "Bot Two"
