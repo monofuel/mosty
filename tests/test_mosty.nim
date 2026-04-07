@@ -137,6 +137,20 @@ suite "client: newMostyClient defaults":
     expect MostyError:
       discard newMostyClient("https://mm.example.com", "")
 
+suite "MostyError: exception type":
+  test "can be raised and caught as CatchableError":
+    var caught = false
+    try:
+      raise newException(MostyError, "test error")
+    except CatchableError as e:
+      caught = true
+      check e.msg == "test error"
+    check caught
+
+  test "raises on empty url and token":
+    expect MostyError:
+      discard newMostyClient("", "")
+
 suite "client: meId field":
   test "meId starts empty on new client":
     let client = newMostyClient("https://mm.example.com", "test-token")
