@@ -236,6 +236,14 @@ proc getUsersByIds*(client: MostyClient, userIds: seq[string]): seq[MattermostUs
   let resp = client.post("/users/ids", body)
   result = fromJson(resp.body, seq[MattermostUser])
 
+proc sendTyping*(client: MostyClient, channelId: string, parentId: string = "") =
+  ## Publish a typing indicator in a channel or thread.
+  let me = client.getMe()
+  var body = %*{"channel_id": channelId}
+  if parentId != "":
+    body["parent_id"] = %parentId
+  discard client.post(&"/users/{me.id}/typing", $body)
+
 # -------------------------------
 # Teams
 
