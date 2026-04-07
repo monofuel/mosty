@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: jiro4989/setup-nim-action@v2
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -20,7 +20,7 @@ jobs:
     - name: Install nimby
       run: nimble install nimby -y
     - name: Cache nimby packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.nimby
         key: ${{ runner.os }}-nimby-${{ hashFiles('nimby.lock') }}
