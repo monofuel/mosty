@@ -20,6 +20,7 @@ var
   baseUrl: string
   token: string
   testChannelId: string
+  testTeamId: string
 
 proc ensureEnv() =
   if getEnv("MATTERMOST_URL", "") == "":
@@ -30,6 +31,7 @@ proc ensureEnv() =
   baseUrl = getEnv("MATTERMOST_URL", "")
   token = getEnv("MATTERMOST_TOKEN", "")
   testChannelId = getEnv("MATTERMOST_TEST_CHANNEL", "")
+  testTeamId = getEnv("MATTERMOST_TEST_TEAM", "")
   if baseUrl == "" or token == "":
     echo "Skipping integration tests: MATTERMOST_URL or MATTERMOST_TOKEN not set"
     quit(0)
@@ -78,3 +80,14 @@ suite "mosty":
     let client = newMostyClient(baseUrl, token)
     client.sendTyping(testChannelId)
     client.close()
+
+  test "post: search posts":
+    if testTeamId == "":
+      echo "Skipping search test: MATTERMOST_TEST_TEAM not set"
+    else:
+      let client = newMostyClient(baseUrl, token)
+      let post = client.createPost(testChannelId, "[mosty test] searchable at " & $now())
+      let results = client.searchPosts(testTeamId, "searchable")
+      check results.order.len >= 0
+      client.deletePost(post.id)
+      client.close()

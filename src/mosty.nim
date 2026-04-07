@@ -224,6 +224,12 @@ proc deletePost*(client: MostyClient, postId: string) =
   ## Delete a post by ID.
   discard client.delete(&"/posts/{postId}")
 
+proc searchPosts*(client: MostyClient, teamId: string, terms: string, isOrSearch: bool = false): MattermostPostList =
+  ## Search for posts in a team.
+  let body = %*{"terms": terms, "is_or_search": isOrSearch}
+  let resp = client.post(&"/teams/{teamId}/posts/search", $body)
+  result = fromJson(resp.body, MattermostPostList)
+
 # -------------------------------
 # Reactions
 
