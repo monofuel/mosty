@@ -23,8 +23,6 @@ type
     # Gateway
     ws*: ws.WebSocket
     running*: bool
-    lastHeartbeat*: float
-    sequence*: int
 
   MostyClient* = ptr MostyClientObj
 
@@ -65,8 +63,6 @@ proc newMostyClient*(
   result.token = tokenVar
   result.curlTimeout = curlTimeout
   result.running = true
-  result.lastHeartbeat = 0.0
-  result.sequence = 0
 
 proc close*(client: MostyClient) =
   ## Clean up the Mattermost client.
