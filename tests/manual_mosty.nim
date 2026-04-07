@@ -66,3 +66,8 @@ suite "mosty":
     check updated.id == post.id
     client.deletePost(post.id)
     client.close()
+
+  test "user: send typing":
+    let client = newMostyClient(baseUrl, token)
+    client.sendTyping(testChannelId)
+    client.close()
