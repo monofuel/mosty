@@ -58,16 +58,14 @@
     "enabled": false,
     "serverId": "",
     "channelId": "",
-    "allowedUserIds": [],
+    "allowedUsers": [],
     "chatHistoryCount": 8
   },
   "mattermost": {
     "enabled": false,
     "url": "https://mattermost.solution-nine.monofuel.dev",
     "channelId": "q1iik3cfii8bxx3zstibtpswze",
-    "allowedUserIds": [
-      "14bbqjnm63dq3nwk3tsjkfe9sh"
-    ],
+    "allowedUsers": [],
     "chatHistoryCount": 8
   },
   "loop": {
@@ -86,9 +84,10 @@
   },
   "remoteSync": {
     "enabled": true,
-    "primaryRemote": "origin",
+    "primaryRemote": "github",
     "remotes": [
-      "origin"
+      "github",
+      "gitea"
     ],
     "syncIntervalSeconds": 60
   },
