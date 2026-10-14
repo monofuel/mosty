@@ -2,7 +2,7 @@
 ## Provides REST and WebSocket gateway access for bot accounts.
 
 import
-  std/[strformat, json, os, strutils, asyncdispatch, random, locks],
+  std/[strformat, json, os, strutils, asyncdispatch, random, locks, times],
   curly, ws, jsony,
   mosty/models
 export models
@@ -23,12 +23,14 @@ type
     # Gateway
     ws*: ws.WebSocket
     running*: bool
+    lastHeartbeat*: float
 
   MostyClient* = ptr MostyClientObj
 
 const
   DefaultCurlTimeout = 60 * 3
   DefaultMaxInFlight = 16
+  GatewayPingIntervalSeconds = 30.0
   EventHello* = "hello"
   EventPosted* = "posted"
   EventPostEdited* = "post_edited"
@@ -368,11 +370,22 @@ proc eventLoop(
 ) {.async.} =
   ## Read WebSocket messages and dispatch events.
   while wsClient.readyState == ReadyState.Open and client.running:
-    let packet = await wsClient.receiveStrPacket()
-    if packet.len == 0:
-      continue
-    let event = parseJson(packet)
-    client.handleEvent(event, onRaw, onPost, onReaction)
+    let (opcode, packet) = await wsClient.receivePacket()
+    client.lastHeartbeat = epochTime()
+    case opcode
+    of Text:
+      if packet.len > 0:
+        let event = parseJson(packet)
+        client.handleEvent(event, onRaw, onPost, onReaction)
+    of Ping:
+      await wsClient.send(packet, Pong)
+    of Pong, Cont:
+      discard
+    of Close:
+      wsClient.readyState = Closed
+      raise newException(WebSocketClosedError, "Gateway closed")
+    of Binary:
+      raise newException(WebSocketError, "Expected a text gateway message")
 
 # Workaround: Nim's std/net newContext() does not set X509_V_FLAG_PARTIAL_CHAIN,
 # so SSL verification fails when only an intermediate CA is in the trust store
@@ -424,8 +437,11 @@ proc connectGateway(
   }
   await wsClient.send($authPayload)
 
-  await client.eventLoop(wsClient, onRaw, onPost, onReaction)
-  try: wsClient.close() except CatchableError: discard
+  wsClient.setupPings(GatewayPingIntervalSeconds)
+  try:
+    await client.eventLoop(wsClient, onRaw, onPost, onReaction)
+  finally:
+    wsClient.hangup()
 
 proc startGateway*(
   client: MostyClient,
