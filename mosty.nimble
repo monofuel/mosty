@@ -1,4 +1,4 @@
-version     = "0.1.0"
+version     = "0.1.1"
 author      = "monofuel"
 description = "Mattermost API client library for Nim"
 license     = "MIT"
